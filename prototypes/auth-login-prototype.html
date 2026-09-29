@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>悦家到 · 运营登录状态原型（设计验证用 · v2 会话版）</title>
+<style>
+  :root {
+    --accent: #4338ca;
+    --accent-soft: #eef2ff;
+    --ok: #059669;
+    --ok-soft: #ecfdf5;
+    --err: #dc2626;
+    --err-soft: #fef2f2;
+    --warn: #b45309;
+    --warn-soft: #fffbeb;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --bg: #f8fafc;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: #0f172a;
+    font: 15px/1.65 system-ui, "Segoe UI", "Microsoft YaHei", sans-serif;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 20px 24px 60px; }
+  header { border-bottom: 1px solid var(--line); padding: 18px 0 14px; margin-bottom: 18px; }
+  header h1 { font-size: 21px; margin: 0 0 4px; color: var(--accent); }
+  header .sub { color: var(--muted); font-size: 14px; }
+  .throwaway {
+    display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fde68a;
+    font-size: 12px; padding: 1px 8px; border-radius: 999px; margin-left: 8px; vertical-align: 2px;
+  }
+  .question {
+    background: var(--accent-soft); border: 1px solid #c7d2fe; border-radius: 10px;
+    padding: 12px 16px; margin-bottom: 14px; font-size: 14px;
+  }
+  .question strong { color: var(--accent); }
+  details.assumptions {
+    background: var(--warn-soft); border: 1px solid #fde68a; border-radius: 10px;
+    padding: 10px 16px; margin-bottom: 20px; font-size: 14px;
+  }
+  details.assumptions summary { cursor: pointer; font-weight: 600; color: var(--warn); }
+  details.assumptions ol { margin: 8px 0 4px; padding-left: 22px; }
+  details.assumptions li { margin: 3px 0; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 470px; gap: 18px; align-items: start; }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+  .card {
+    background: #fff; border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; margin-bottom: 14px;
+  }
+  .card h3 { margin: 0 0 10px; font-size: 15px; color: #334155; }
+  .statusbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+  .badge {
+    display: inline-block; font-size: 12.5px; border-radius: 999px; padding: 2px 10px;
+    border: 1px solid var(--line); background: #fff; color: #334155; font-weight: 600;
+  }
+  .badge.acc { background: var(--accent-soft); border-color: #c7d2fe; color: var(--accent); }
+  .badge.ok { background: var(--ok-soft); border-color: #a7f3d0; color: var(--ok); }
+  .badge.err { background: var(--err-soft); border-color: #fecaca; color: var(--err); }
+  .badge.warn { background: var(--warn-soft); border-color: #fde68a; color: var(--warn); }
+  .kv { display: grid; grid-template-columns: 150px 1fr; gap: 3px 10px; font-size: 14px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .mono { font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+  .dots { display: inline-flex; gap: 5px; vertical-align: -1px; margin-right: 8px; }
+  .dot { width: 13px; height: 13px; border-radius: 50%; border: 1px solid #cbd5e1; background: #fff; display: inline-block; }
+  .dot.fill { background: var(--err); border-color: var(--err); }
+  .hint { color: var(--muted); font-size: 12.5px; margin-top: 6px; }
+  button {
+    font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line);
+    background: #fff; color: #0f172a; padding: 6px 12px; transition: background .12s;
+  }
+  button:hover:not(:disabled) { background: var(--accent-soft); border-color: #c7d2fe; }
+  button:disabled { opacity: .38; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.primary:hover:not(:disabled) { background: #3730a3; }
+  .grp { margin-bottom: 14px; }
+  .grp .grp-title { font-size: 13px; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { border-radius: 999px; }
+  .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #log { font-size: 13px; max-height: 380px; overflow-y: auto; }
+  .logline {
+    display: flex; gap: 8px; align-items: baseline; padding: 5px 2px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .logline:last-child { border-bottom: none; }
+  .logline .t { color: var(--muted); white-space: nowrap; font-size: 12px; min-width: 92px; }
+  .logline .req { font-weight: 700; white-space: nowrap; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  .logline .st { font-weight: 700; white-space: nowrap; }
+  .logline .st.s2 { color: var(--ok); }
+  .logline .st.s4 { color: var(--err); }
+  .logline .note { color: #475569; }
+  .logline.time .note { color: var(--accent); }
+  .logline.sys  .note { color: var(--muted); font-style: italic; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .tabs button { font-size: 13px; padding: 4px 10px; }
+  .tabs button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .wdesc { font-size: 13.5px; color: #475569; background: #f8fafc; border: 1px solid var(--line);
+           border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; }
+  .steps { list-style: none; margin: 0; padding: 0; }
+  .steps li { margin: 0 0 6px; }
+  .steps button { width: 100%; text-align: left; }
+  .steps button.now { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); font-weight: 600; }
+  .steps li.done button { text-decoration: line-through; color: var(--muted); background: var(--ok-soft); }
+  .done-msg { color: var(--ok); font-weight: 600; font-size: 13.5px; }
+  .start-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .sess-row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; padding: 3px 0; }
+  .sess-row + .sess-row { border-top: 1px dashed var(--line); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>悦家到 · 运营端登录 <span class="throwaway">PROTOTYPE · throwaway 验证件，非生产代码</span></h1>
+  <div class="sub">手机号 13800000000（Flyway 种子账号）· BCrypt(10) · 登录失败分层提示（已拍板）：第 1~4 次与禁用账号统一 401「手机号或密码错误」防枚举，锁触发与锁定期返回 401 + <code class="mono">ACCOUNT_LOCKED</code> + retryAfter · phone 维度限流 5 次/10 分钟锁 30 分钟，滑动窗口，锁内不重置计时 · 凭证 = 纯 Redis 会话（ADR-0007）：256bit 随机串 Bearer，<code class="mono">auth:session:{token}</code> 滑动 4h 无绝对上限，反向索引踢单设备/封号全踢，Redis 故障 fail-close 一律 401 · 会话校验 filter 在 yjd-common，gateway 与 monolith 各自挂载 · API 仅 login / logout / me（无 refresh）</div>
+</header>
+
+<div class="question">
+  <strong>这个 demo 回答一个问题：</strong>按 ADR-0007（纯 Redis 会话，不用 JWT）定稿的运营登录——滑动续期、单设备互踢、封号全踢、登出即死、Redis fail-close、限流锁定——按真实操作序列跑起来之后，行为是否和你的预期一致？
+  左侧是完整状态（每次点击后刷新），右侧上半是自由操作，下半是引导场景。demo 建模了<strong>两个浏览器</strong>（运营在两台设备上登录的场景），可以切换视角观察「踢单设备」。<strong>时间是被虚拟化的</strong>：用「时间快进」推着 4 小时滑动 TTL、10 分钟失败窗口、30 分钟锁走完它们的一生。
+</div>
+
+<details class="assumptions" open>
+  <summary>✅ 语义定稿记录（2026-09-29 拍板；demo 按此实现）</summary>
+  <ol>
+    <li>登录成功 → 失败计数清零。</li>
+    <li>失败窗口 = 滑动窗口：只统计最近 10 分钟内的失败。</li>
+    <li>锁到期自动解除、从零重新计数；<b>锁定期内继续尝试不重置计时、不计数</b>。</li>
+    <li>踢单设备 = 登录时自动踢旧会话，同一账号全局只允许一个活跃会话（运营手动踢人归后期员工管理）。</li>
+    <li>续期时机 = 每次校验通过即续满 4 小时（含 GET /me 读请求）。</li>
+    <li>UA·IP 摘要仅作记录，暂不参与校验。</li>
+    <li>封号 = DB 层禁用 + 扫反向索引全踢（Redis 无 token 可验、MySQL 无法登录）；主动封号的操作界面（HRM）后期再做；会话校验路径不查 DB 账号状态。</li>
+    <li><b>登录失败分层提示</b>：第 1~4 次失败与禁用账号统一 401「手机号或密码错误」（防枚举主战场）；锁触发与锁定期返回 401 + <code class="mono">code=ACCOUNT_LOCKED</code> + <code class="mono">retryAfter</code>（秒），前端展示「已临时锁定，请 X 分钟后再试」；锁计数按手机号维度、<b>不存在的手机号同样计数上锁</b>——锁定提示对存在/不存在的手机号表现完全一致，零枚举价值（见场景 H）。</li>
+  </ol>
+</details>
+
+<main>
+  <div class="col-left">
+    <div class="card" id="state-card"><!-- 渲染 --></div>
+    <div class="card">
+      <h3>请求与事件日志（每次操作后追加）</h3>
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <div class="col-right">
+    <div class="card">
+      <h3>自由操作（任意顺序，随便戳）</h3>
+      <div class="grp">
+        <div class="grp-title">视角（当前操作哪个浏览器）</div>
+        <div class="row" style="margin-bottom:8px">
+          <button class="chip" id="br-a">浏览器 A（工位电脑）</button>
+          <button class="chip" id="br-b">浏览器 B（笔记本）</button>
+        </div>
+      </div>
+      <div class="grp">
+        <div class="grp-title">登录（POST /api/v1/auth/login）</div>
+        <div class="row" style="margin-bottom:8px">
+          <button class="chip" id="pw-right">真实手机号 · 正确密码</button>
+          <button class="chip" id="pw-wrong">真实手机号 · 输错密码</button>
+          <button class="chip" id="pw-ghost">不存在的手机号 13999999999</button>
+        </div>
+        <div class="row">
+          <button class="primary" id="btn-login">尝试登录</button>
+        </div>
+        <div class="hint">第三个选项用来验证「锁定提示零枚举价值」：不存在的手机号同样计数、同样上锁、同样收到 ACCOUNT_LOCKED。</div>
+      </div>
+      <div class="grp">
+        <div class="grp-title">已登录可做</div>
+        <div class="row">
+          <button id="btn-me">GET /me（带当前浏览器 token）</button>
+          <button id="btn-logout">POST /logout</button>
+        </div>
+      </div>
+      <div class="grp">
+        <div class="grp-title">时间快进（虚拟时钟）</div>
+        <div class="row">
+          <button data-adv="1">+1 分钟</button>
+          <button data-adv="11">+11 分钟</button>
+          <button data-adv="35">+35 分钟</button>
+          <button data-adv="239">+3 小时 59 分</button>
+          <button data-adv="241">+4 小时 01 分</button>
+        </div>
+      </div>
+      <div class="grp">
+        <div class="grp-title">环境与账号（管理员 / 运维视角）</div>
+        <div class="row">
+          <button id="btn-mode">切换部署模式</button>
+          <button id="btn-redis">Redis 置 DOWN / UP</button>
+          <button id="btn-acct">禁用 / 启用账号</button>
+          <button id="btn-reset">重置 demo</button>
+        </div>
+        <div class="hint">「禁用账号」演示封号全踢；「Redis 置 DOWN」演示 fail-close（ADR 定稿：故障期一律 401）。</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>引导场景（每个从已知初始状态开始）</h3>
+      <div class="tabs" id="tabs"></div>
+      <div class="wdesc" id="wdesc"></div>
+      <div class="start-row">
+        <button class="primary" id="btn-start">▶ 开始 / 重播此场景</button>
+      </div>
+      <ol class="steps" id="steps"></ol>
+      <div class="done-msg" id="done" style="display:none">✓ 场景完成。切到其他场景，或回到上方自由探索。</div>
+    </div>
+  </div>
+</main>
+</div>
+
+<!-- ============================================================
+     AuthModel —— 可搬运的 pure logic module（无 DOM）
+     语义来源：ADR-0007（纯 Redis 会话）+ 登录设计定稿。
+     验证通过后，这个 module 的语义应折进 yjd-auth-service 的真实实现。
+     ============================================================ -->
+<script>
+const AuthModel = (() => {
+  // ---- 设计定稿常量 ----
+  const SESSION_TTL_MIN = 4 * 60;    // auth:session:{token} 滑动 TTL：4 小时，无绝对上限
+  const FAIL_WINDOW_MIN = 10;        // 登录失败计数窗口（定稿：滑动窗口）
+  const MAX_FAILS       = 5;         // 窗口内失败上限
+  const LOCK_MIN        = 30;        // 触发后锁定时长（锁内尝试不重置）
+  const ACCOUNT_ID      = 1;         // 种子账号
+  const REAL_PHONE  = '13800000000'; // Flyway 种子账号
+  const GHOST_PHONE = '13999999999'; // 演示用：从未注册的手机号（枚举者视角）
+
+  let tokenSeq = 1; // demo 用递增编号代替 256bit 随机串，便于肉眼追踪
+
+  function initial() {
+    return {
+      now: 480, // 虚拟时钟：第 1 天 08:00（分钟数）
+      account: {
+        phone: REAL_PHONE,
+        realPassword: 'yuejia-2026', // 演示用明文；生产是 Flyway 种子 + BCrypt(cost 10) 哈希
+        status: 'ACTIVE',            // account.status（ACTIVE / DISABLED）
+        roles: ['OPERATOR'],
+      },
+      redisUp: true,
+      failuresByPhone: { [REAL_PHONE]: [], [GHOST_PHONE]: [] }, // Redis phone 维度失败计数（各自独立）
+      lockedUntilByPhone: { [REAL_PHONE]: null, [GHOST_PHONE]: null }, // 各手机号锁定截止；null = 从未锁
+      sessions: {},      // 模拟 Redis：auth:session:{token} → { id, accountId, roles, loginAt, ttlAt, ua }
+      index: {},         // 模拟 Redis：auth:sessions:{accountId} → [token]（SET，反向索引）
+      tokens: { A: null, B: null }, // 客户端视角：浏览器 A / B 各自持有的 token
+      browser: 'A',      // 当前操作视角
+      mode: 'GATEWAY',   // GATEWAY（WSL 微服务）| MONOLITH（生产单体）
+    };
+  }
+
+  const clone = s => structuredClone(s);
+  const windowedFails = (s, phone) => (s.failuresByPhone[phone] || []).filter(t => s.now - t < FAIL_WINDOW_MIN);
+  const isLocked = (s, phone) => { const lu = s.lockedUntilByPhone[phone]; return lu !== null && s.now < lu; };
+  const mkLog = (s, method, path, status, note) => ({ kind: 'http', t: s.now, method, path, status, note });
+  const sysLog = (s, note) => ({ kind: 'sys', t: s.now, note });
+  // TTL 剩余是「滑动」的：随虚拟时间流逝而减少，校验通过时顶回 4h
+  const ttlLeft = (s, sess) => sess.ttlAt - s.now;
+
+  // Redis 侧：DEL 会话 + 从反向索引移除（登出 / 踢人共用）
+  function delSession(ns, tk) {
+    delete ns.sessions[tk];
+    const i = (ns.index[ACCOUNT_ID] || []).indexOf(tk);
+    if (i >= 0) ns.index[ACCOUNT_ID].splice(i, 1);
+  }
+
+  // POST /api/v1/auth/login
+  // attempt: { kind: 'CORRECT' | 'WRONG_PW' | 'NO_SUCH_PHONE' }
+  // 分层提示（定稿）：锁层 = 401 + ACCOUNT_LOCKED + retryAfter（存在/不存在的手机号表现一致，零枚举价值）；
+  //                  第 1~4 次失败与禁用账号 = 统一 401「手机号或密码错误」。
+  function login(s, attempt) {
+    const ns = clone(s);
+    const phone = attempt.kind === 'NO_SUCH_PHONE' ? GHOST_PHONE : REAL_PHONE;
+    const exists = phone === REAL_PHONE;
+    const phoneLabel = exists ? REAL_PHONE : `${GHOST_PHONE}（不存在的手机号）`;
+    ns.failuresByPhone[phone] = windowedFails(ns, phone);
+    const br = ns.browser, ua = `Chrome/Win · 10.0.0.${br === 'A' ? 5 : 7}`;
+
+    if (!ns.redisUp) {
+      return { s: ns, log: mkLog(ns, 'POST', '/api/v1/auth/login', 401,
+        'Redis 故障 → fail-close：登录也要写会话，一律 401（安全优先）') };
+    }
+    if (isLocked(ns, phone)) {
+      const left = ns.lockedUntilByPhone[phone] - ns.now;
+      return { s: ns, log: mkLog(ns, 'POST', '/api/v1/auth/login', 401,
+        `锁定期内 → 401 + body{code:"ACCOUNT_LOCKED", retryAfter:${left * 60}}；不校验密码、不重置计时、不计数（定稿）；存在/不存在的手机号在这一层表现完全一致 → 前端展示「已临时锁定，请约 ${left} 分钟后再试」（剩 ${left} 分钟）`) };
+    }
+    if (exists && ns.account.status !== 'ACTIVE') {
+      return { s: ns, log: mkLog(ns, 'POST', '/api/v1/auth/login', 401,
+        '账号已禁用 → 401 + body{code:"AUTH_INVALID", message:"手机号或密码错误"}（对外与密码错误不可区分，不计数）') };
+    }
+    if (!exists || attempt.kind === 'WRONG_PW') {
+      ns.failuresByPhone[phone].push(ns.now);
+      const n = ns.failuresByPhone[phone].length;
+      if (n >= MAX_FAILS) {
+        ns.lockedUntilByPhone[phone] = ns.now + LOCK_MIN;
+        return { s: ns, log: mkLog(ns, 'POST', '/api/v1/auth/login', 401,
+          `${phoneLabel} 第 ${n}/${MAX_FAILS} 次失败 → 触发锁定 ${LOCK_MIN} 分钟，本次响应即告知：401 + body{code:"ACCOUNT_LOCKED", retryAfter:${LOCK_MIN * 60}}${exists ? '' : '；注意：该手机号并不存在，照样计数上锁——枚举者无从分辨'}（前端展示「失败次数过多，已临时锁定」）`) };
+      }
+      return { s: ns, log: mkLog(ns, 'POST', '/api/v1/auth/login', 401,
+        `${phoneLabel} ${exists ? '密码错误（BCrypt 比对失败）' : '查无此账号（视为密码错误）'} → 窗口内第 ${n}/${MAX_FAILS} 次失败，401 + body{code:"AUTH_INVALID", message:"手机号或密码错误"}${exists ? '' : '——与存在手机号输错密码的响应一字不差'}（防枚举主战场）`) };
+    }
+
+    // 成功（定稿：踢单设备 = 新登录自动踢旧会话；失败计数清零）
+    const kicked = (ns.index[ACCOUNT_ID] || []).slice();
+    kicked.forEach(tk => delSession(ns, tk));
+    const tk = 't' + tokenSeq++;
+    ns.sessions[tk] = { id: Number(tk.slice(1)), accountId: ACCOUNT_ID, roles: ns.account.roles,
+                        loginAt: ns.now, ttlAt: ns.now + SESSION_TTL_MIN, ua };
+    ns.index[ACCOUNT_ID] = [tk];
+    ns.tokens[br] = tk;
+    ns.failuresByPhone[phone] = [];
+    ns.lockedUntilByPhone[phone] = null;
+    const kickNote = kicked.length
+      ? `；单设备语义：踢掉旧会话 ${kicked.map(k => 'token#' + ns0id(k)).join('、')}（DEL + 审计：踢人）`
+      : '';
+    return { s: ns, log: mkLog(ns, 'POST', '/api/v1/auth/login', 200,
+      `写入 auth:session:token#${ns.sessions[tk].id}（hash：accountId=${ACCOUNT_ID} / roles / loginAt / UA·IP 摘要「${ua}」），TTL 4h 滑动无绝对上限；审计：login${kickNote}`) };
+  }
+  const ns0id = tk => tk.slice(1);
+
+  // 双模式共用的会话校验 filter（将来放 yjd-common；gateway 与 monolith 各自挂载同一份逻辑）
+  // 返回 { ok, reason }；通过时由调用方完成滑动续期
+  function verifySession(s, tk) {
+    if (!s.redisUp) return { ok: false, reason: 'Redis 故障 → fail-close 一律 401（不区分「无会话」与「故障」，安全优先）' };
+    if (!tk) return { ok: false, reason: '请求未携带 token（该浏览器未登录）' };
+    const sess = s.sessions[tk];
+    if (!sess) return { ok: false, reason: `auth:session:token#${ns0id(tk)} 不存在（登出被 DEL / 被单设备踢 / TTL 断档被 Redis 逐出）` };
+    if (s.now >= sess.ttlAt) return { ok: false, reason: `token#${sess.id} 滑动 TTL 已断档（Redis 已逐出该键）` };
+    return { ok: true }; // 不查 DB 账号状态（定稿）；UA·IP 摘要不参与校验（定稿）
+  }
+
+  // GET /api/v1/auth/me（受保护接口）
+  function me(s) {
+    const ns = clone(s);
+    const tk = ns.tokens[ns.browser];
+    const v = verifySession(ns, tk);
+    const via = ns.mode === 'GATEWAY'
+      ? '网关会话 filter'
+      : 'monolith 自挂会话 filter（与网关同一份 yjd-common 逻辑）';
+    if (!v.ok) {
+      return { s: ns, log: mkLog(ns, 'GET', '/api/v1/auth/me', 401,
+        `${via}校验失败：${v.reason}。前端 axios 拦截器捕获 401 → 清本地态、跳登录页（无 refresh 重放）`) };
+    }
+    ns.sessions[tk].ttlAt = ns.now + SESSION_TTL_MIN; // 滑动续期（定稿：校验通过即续满 4h）
+    return { s: ns, log: mkLog(ns, 'GET', '/api/v1/auth/me', 200,
+      `${via}校验通过 → 透传 X-User-Id: 1 / X-User-Roles: OPERATOR${ns.mode === 'GATEWAY' ? '，路由 lb://yjd-auth' : ''} → EXPIRE 续满 4h（活跃即续，无绝对上限）`) };
+  }
+
+  // POST /api/v1/auth/logout
+  function logout(s) {
+    const ns = clone(s);
+    const tk = ns.tokens[ns.browser];
+    if (!ns.redisUp) {
+      return { s: ns, log: mkLog(ns, 'POST', '/api/v1/auth/logout', 401,
+        'Redis 故障 → fail-close：DEL 不可用，返回 401（会话仍存活，恢复后仍可登出）') };
+    }
+    ns.tokens[ns.browser] = null; // 前端清本地 token
+    if (tk && ns.sessions[tk]) {
+      delSession(ns, tk);
+      return { s: ns, log: mkLog(ns, 'POST', '/api/v1/auth/logout', 204,
+        `DEL auth:session:token#${ns0id(tk)} + SREM 反向索引；审计：logout。下一请求即 401——撤销立即生效`) };
+    }
+    return { s: ns, log: mkLog(ns, 'POST', '/api/v1/auth/logout', 204,
+      '客户端本就无有效会话，幂等 204') };
+  }
+
+  // 时间快进（分钟）——跨过 TTL / 锁到期时，模拟 Redis 逐出并给出提示
+  function advance(s, minutes) {
+    const ns = clone(s);
+    const before = ns.now;
+    ns.now += minutes;
+    const notes = [];
+    const evicted = Object.entries(ns.sessions)
+      .filter(([tk, sess]) => before < sess.ttlAt && ns.now >= sess.ttlAt)
+      .map(([tk]) => tk);
+    evicted.forEach(tk => {
+      delSession(ns, tk);
+      notes.push(`token#${ns0id(tk)} 滑动 TTL 断档，被 Redis 逐出`);
+    });
+    for (const [ph, lu] of Object.entries(ns.lockedUntilByPhone)) {
+      if (lu !== null && before < lu && ns.now >= lu)
+        notes.push(`${ph} 的锁定到期自动解除、从零重新计数（定稿）`);
+    }
+    return { s: ns, log: { kind: 'time', t: ns.now,
+      note: `时间快进 ${minutes} 分钟` + (notes.length ? '：' + notes.join('；') : '') } };
+  }
+
+  function toggleMode(s) {
+    const ns = clone(s);
+    ns.mode = ns.mode === 'GATEWAY' ? 'MONOLITH' : 'GATEWAY';
+    return { s: ns, log: sysLog(ns, `部署模式切换为 ${
+      ns.mode === 'GATEWAY' ? '网关模式（WSL 微服务：请求先过 gateway 会话 filter 再路由 lb://yjd-auth）'
+                            : '单体模式（生产 VM：无网关，monolith 直连并自挂会话 filter）'}`) };
+  }
+
+  function toggleRedis(s) {
+    const ns = clone(s);
+    ns.redisUp = !ns.redisUp;
+    return { s: ns, log: sysLog(ns, ns.redisUp
+      ? 'Redis 恢复 UP：存量会话只要 TTL 未断档即仍有效'
+      : '模拟 Redis 故障（生产 = 实例挂 / 网络分区）：fail-close 生效，一切认证请求将 401') };
+  }
+
+  // 禁用 / 启用账号；禁用时封号全踢（定稿：DB 禁用 + 扫索引批量 DEL）
+  function toggleAccount(s) {
+    const ns = clone(s);
+    ns.account.status = ns.account.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
+    if (ns.account.status === 'DISABLED') {
+      const kicked = (ns.index[ACCOUNT_ID] || []).slice();
+      kicked.forEach(tk => delSession(ns, tk));
+      return { s: ns, log: sysLog(ns,
+        `管理员：UPDATE account SET status=DISABLED → 扫反向索引 auth:sessions:${ACCOUNT_ID} 批量 DEL（封号全踢，踢了 ${kicked.length ? kicked.map(k => 'token#' + ns0id(k)).join('、') : '（无活跃会话）'}）；审计：踢人`) };
+    }
+    return { s: ns, log: sysLog(ns, '管理员：账号重新启用（不影响会话，需重新登录）') };
+  }
+
+  // 切换操作视角（纯客户端视角变化，Redis 状态不动）
+  function switchBrowser(s, which) {
+    const ns = clone(s);
+    ns.browser = which;
+    return { s: ns, log: sysLog(ns, `操作视角切到浏览器 ${which}（${which === 'A' ? '工位电脑' : '笔记本'}）`) };
+  }
+
+  return { SESSION_TTL_MIN, FAIL_WINDOW_MIN, MAX_FAILS, LOCK_MIN, REAL_PHONE, GHOST_PHONE,
+           initial, login, me, logout, advance,
+           toggleMode, toggleRedis, toggleAccount, switchBrowser,
+           windowedFails, isLocked, ttlLeft };
+})();
+</script>
+
+<!-- ==================== page shell（throwaway） ==================== -->
+<script>
+(function () {
+  let state = AuthModel.initial();
+  let pwChoice = 'CORRECT';
+  const logs = [];
+  let activeTab = 0;
+  const progress = [];
+  const AT = { CORRECT: { kind: 'CORRECT' }, WRONG_PW: { kind: 'WRONG_PW' }, NO_SUCH_PHONE: { kind: 'NO_SUCH_PHONE' } };
+
+  const $ = id => document.getElementById(id);
+  const fmtClock = m => {
+    const day = Math.floor(m / 1440) + 1, r = m % 1440;
+    return `第 ${day} 天 ${String(Math.floor(r / 60)).padStart(2, '0')}:${String(r % 60).padStart(2, '0')}`;
+  };
+  const fmtDur = d => {
+    const sign = d < 0 ? '-' : ''; d = Math.abs(d);
+    const h = Math.floor(d / 60), m = d % 60;
+    return sign + (h > 0 ? `${h} 小时 ${m} 分` : `${m} 分钟`);
+  };
+
+  // ---------- 场景定义 ----------
+  const walkthroughs = [
+    { id: 'A', title: 'A · 正常用一天（滑动续期）',
+      desc: '情境：运营早上登录后台，中间吃了个两三小时的午饭回来接着用，晚上下班走人。看点：4 小时滑动 TTL——只要间隔不满 4 小时有任意一次请求，会话就一直续；断了 4 小时才真正过期，前端清态跳登录。',
+      steps: [
+        { label: '① 正确密码登录（拿到 token，TTL 4h）', run: () => apply(AuthModel.login(state, AT.CORRECT)) },
+        { label: '② GET /me（200，续满 4h）', run: () => apply(AuthModel.me(state)) },
+        { label: '③ 快进 3 小时 59 分（还剩 1 分钟寿命）', run: () => apply(AuthModel.advance(state, 239)) },
+        { label: '④ GET /me（200 —— 差点断档，又续满 4h）', run: () => apply(AuthModel.me(state)) },
+        { label: '⑤ 快进 4 小时 01 分（下班走人，断档超 4h）', run: () => apply(AuthModel.advance(state, 241)) },
+        { label: '⑥ GET /me（401 —— 会话被 Redis 逐出，清态跳登录）', run: () => apply(AuthModel.me(state)) },
+        { label: '⑦ 正确密码登录（第二天早上重新登录）', run: () => apply(AuthModel.login(state, AT.CORRECT)) },
+      ] },
+    { id: 'B', title: 'B · 暴力破解被锁（分层提示）',
+      desc: '情境：有人对着运营账号撞库。看点：第 1~4 次失败统一「手机号或密码错误」（防枚举主战场）；第 5 次触发锁的当下即返回 ACCOUNT_LOCKED + retryAfter，前端展示「已临时锁定，请 X 分钟后再试」；锁定期内继续尝试不重置计时、不计数；30 分钟后自动解除、从零开始。',
+      steps: [
+        { label: '① 输错密码（401「手机号或密码错误」，1/5）', run: () => apply(AuthModel.login(state, AT.WRONG_PW)) },
+        { label: '② 输错密码（2/5）', run: () => apply(AuthModel.login(state, AT.WRONG_PW)) },
+        { label: '③ 输错密码（3/5）', run: () => apply(AuthModel.login(state, AT.WRONG_PW)) },
+        { label: '④ 输错密码（4/5）', run: () => apply(AuthModel.login(state, AT.WRONG_PW)) },
+        { label: '⑤ 输错密码（5/5 → 触发锁 30 分钟，本次即 401 + ACCOUNT_LOCKED + retryAfter=1800）', run: () => apply(AuthModel.login(state, AT.WRONG_PW)) },
+        { label: '⑥ 输入正确密码（401 + ACCOUNT_LOCKED：前端显示「请约 30 分钟后再试」；不重置计时）', run: () => apply(AuthModel.login(state, AT.CORRECT)) },
+        { label: '⑦ 快进 35 分钟（锁定到期自动解除）', run: () => apply(AuthModel.advance(state, 35)) },
+        { label: '⑧ 正确密码登录（200，计数已清零）', run: () => apply(AuthModel.login(state, AT.CORRECT)) },
+      ] },
+    { id: 'H', title: 'H · 枚举者视角（锁定提示零泄露）',
+      desc: '情境：攻击者想探测「哪些手机号注册过运营后台」。看点：定稿的分层提示对存在/不存在的手机号在两个失败层（1~4 次的 AUTH_INVALID、锁层的 ACCOUNT_LOCKED）响应完全一致——锁定提示零枚举价值；且计数按手机号独立，打 A 号锁不到 B 号。前提是实现上「查无此账号」也计入该手机号的失败计数（demo 已按此实现）。',
+      steps: [
+        { label: '① 用不存在的手机号 13999999999 尝试（401「手机号或密码错误」——与真实号输错密码一字不差）', run: () => apply(AuthModel.login(state, AT.NO_SUCH_PHONE)) },
+        { label: '② 对 13999999999 再试 3 次（该号 4/5；13800000000 的计数始终为 0）', run: () => { for (let i = 0; i < 3; i++) apply(AuthModel.login(state, AT.NO_SUCH_PHONE)); } },
+        { label: '③ 第 5 次（401 + ACCOUNT_LOCKED——不存在的号同样上锁，响应与真实号被锁一致）', run: () => apply(AuthModel.login(state, AT.NO_SUCH_PHONE)) },
+        { label: '④ 真实手机号 13800000000 正确密码登录（200——两号独立计数，互不影响）', run: () => apply(AuthModel.login(state, AT.CORRECT)) },
+        { label: '⑤ 锁定期内对 13999999999 再试（401 + ACCOUNT_LOCKED + retryAfter，枚举者仍无从分辨）', run: () => apply(AuthModel.login(state, AT.NO_SUCH_PHONE)) },
+      ] },
+    { id: 'C', title: 'C · 会话的三种死法（核心）',
+      desc: '情境：运营先在工位电脑（浏览器 A）登录，又在笔记本（浏览器 B）上登录，然后登出、然后被封号。看点：ADR-0007 的核心承诺「撤销立即生效」——被新设备踢、登出、封号全踢，三种死法都是 DEL 后下一请求即 401（对比被否掉的 JWT 版：登出后 access 还能残留至多 30 分钟）。',
+      steps: [
+        { label: '① 浏览器 A 正确密码登录', run: () => apply(AuthModel.login(state, AT.CORRECT)) },
+        { label: '② 浏览器 A GET /me（200）', run: () => apply(AuthModel.me(state)) },
+        { label: '③ 视角切到浏览器 B', run: () => apply(AuthModel.switchBrowser(state, 'B')) },
+        { label: '④ 浏览器 B 正确密码登录（单设备：踢掉 A 的 token ← 死法一）', run: () => apply(AuthModel.login(state, AT.CORRECT)) },
+        { label: '⑤ 切回浏览器 A，GET /me（401 —— A 的会话已被踢）', run: () => { apply(AuthModel.switchBrowser(state, 'A')); apply(AuthModel.me(state)); } },
+        { label: '⑥ 视角切到浏览器 B', run: () => apply(AuthModel.switchBrowser(state, 'B')) },
+        { label: '⑦ 浏览器 B POST /logout（DEL ← 死法二）', run: () => apply(AuthModel.logout(state)) },
+        { label: '⑧ 浏览器 B GET /me（401 —— 登出即死，无残留）', run: () => apply(AuthModel.me(state)) },
+        { label: '⑨ 浏览器 B 再登录一次', run: () => apply(AuthModel.login(state, AT.CORRECT)) },
+        { label: '⑩ 管理员禁用账号（封号全踢 ← 死法三）', run: () => apply(AuthModel.toggleAccount(state)) },
+        { label: '⑪ 浏览器 B GET /me（401 —— 存量 token 也被扫掉）', run: () => apply(AuthModel.me(state)) },
+      ] },
+    { id: 'D', title: 'D · 永生会话（无绝对上限）',
+      desc: '情境：一个从不主动登出的运营，只要每个 4 小时内碰一下后台，会话就永远活着。看点：ADR-0007 明确「不设绝对上限」是运营者的主动选择——跑起来感受一下「活跃即永生」；如果将来想要兜底（如 7 天强制重登），就是给会话加绝对上限的挂起池议题。',
+      steps: [
+        { label: '① 正确密码登录', run: () => apply(AuthModel.login(state, AT.CORRECT)) },
+        { label: '② 快进 3 小时 59 分', run: () => apply(AuthModel.advance(state, 239)) },
+        { label: '③ GET /me（200，续满）', run: () => apply(AuthModel.me(state)) },
+        { label: '④ 快进 3 小时 59 分', run: () => apply(AuthModel.advance(state, 239)) },
+        { label: '⑤ GET /me（200，续满）', run: () => apply(AuthModel.me(state)) },
+        { label: '⑥ 快进 3 小时 59 分', run: () => apply(AuthModel.advance(state, 239)) },
+        { label: '⑦ GET /me（200 —— 已近 12 小时无强制重登，仍然活着）', run: () => apply(AuthModel.me(state)) },
+      ] },
+    { id: 'E', title: 'E · Redis 故障 fail-close',
+      desc: '情境：Redis 实例挂了十分钟。看点：故障窗口内一切认证请求（校验、登录）一律 401，安全优先；恢复后存量会话只要 TTL 未断档就原样可用。注意：若故障持续超过 4 小时，恢复时会话已全被逐出，只能重新登录。',
+      steps: [
+        { label: '① 正确密码登录', run: () => apply(AuthModel.login(state, AT.CORRECT)) },
+        { label: '② GET /me（200）', run: () => apply(AuthModel.me(state)) },
+        { label: '③ Redis 置 DOWN（模拟实例挂 / 网络分区）', run: () => apply(AuthModel.toggleRedis(state)) },
+        { label: '④ GET /me（401 —— fail-close，不区分「无会话」与「故障」）', run: () => apply(AuthModel.me(state)) },
+        { label: '⑤ 正确密码登录（401 —— 登录也写不了 Redis）', run: () => apply(AuthModel.login(state, AT.CORRECT)) },
+        { label: '⑥ Redis 置 UP', run: () => apply(AuthModel.toggleRedis(state)) },
+        { label: '⑦ GET /me（200 —— 原 token 未受故障影响，TTL 未断档）', run: () => apply(AuthModel.me(state)) },
+      ] },
+    { id: 'F', title: 'F · 双模式等价性',
+      desc: '情境：生产 VM 上跑的是单体（无网关、无 Nacos），WSL 里跑的是微服务全家桶。看点：切到单体模式后跑一遍与场景 A 同构的序列——会话校验是同一份 yjd-common 逻辑挂在两处，行为应当完全一致（双构建模式等价性首验）。',
+      steps: [
+        { label: '① 切换到单体模式', run: () => apply(AuthModel.toggleMode(state)) },
+        { label: '② 正确密码登录', run: () => apply(AuthModel.login(state, AT.CORRECT)) },
+        { label: '③ GET /me（200 —— monolith 自己校验会话）', run: () => apply(AuthModel.me(state)) },
+        { label: '④ 快进 4 小时 01 分', run: () => apply(AuthModel.advance(state, 241)) },
+        { label: '⑤ GET /me（401 —— TTL 断档被逐出）', run: () => apply(AuthModel.me(state)) },
+        { label: '⑥ 正确密码登录（与场景 A 序列完全一致）', run: () => apply(AuthModel.login(state, AT.CORRECT)) },
+      ] },
+    { id: 'G', title: 'G · 窗口滑动（10 分钟前的失败不算数）',
+      desc: '情境：攻击者慢慢试密码，每 11 分钟错一次。看点：失败计数是滑动窗口（定稿）——10 分钟前滑出窗口的失败不再计数，慢速撞库永远不会触发 5 次锁。这是「5 次/10 分钟」这个参数的固有盲区，看你是否接受。',
+      steps: [
+        { label: '① 输错密码 ×2（窗口内 2/5）', run: () => { apply(AuthModel.login(state, AT.WRONG_PW)); apply(AuthModel.login(state, AT.WRONG_PW)); } },
+        { label: '② 快进 11 分钟（那 2 次滑出窗口）', run: () => apply(AuthModel.advance(state, 11)) },
+        { label: '③ 输错密码（窗口内回到 1/5，不累积成 3）', run: () => apply(AuthModel.login(state, AT.WRONG_PW)) },
+        { label: '④ 输错密码 ×4（第 5 次才锁 —— 观察计数爬升）', run: () => { for (let i = 0; i < 4; i++) apply(AuthModel.login(state, AT.WRONG_PW)); } },
+      ] },
+  ];
+  walkthroughs.forEach(() => progress.push(-1));
+
+  // ---------- 调度 ----------
+  function apply(result) {
+    state = result.s;
+    logs.push(result.log);
+    render();
+  }
+
+  // ---------- 渲染 ----------
+  function render() {
+    const s = state;
+    const dotsFor = phone => {
+      const n = AuthModel.windowedFails(s, phone).length;
+      return Array.from({ length: AuthModel.MAX_FAILS }, (_, i) =>
+        `<span class="dot ${i < n ? 'fill' : ''}"></span>`).join('');
+    };
+    const lockLine = phone => {
+      const lu = s.lockedUntilByPhone[phone];
+      if (AuthModel.isLocked(s, phone)) return `🔒 锁定中，剩 ${lu - s.now} 分钟（不重置计时）`;
+      return lu !== null ? '曾锁定（已到期解除，从零重新计数）' : '未锁定';
+    };
+    const realFails = AuthModel.windowedFails(s, AuthModel.REAL_PHONE).length;
+    const realLocked = AuthModel.isLocked(s, AuthModel.REAL_PHONE);
+    const ghostLocked = AuthModel.isLocked(s, AuthModel.GHOST_PHONE);
+
+    const sessEntries = Object.entries(s.sessions);
+    const sessHtml = sessEntries.length === 0
+      ? `<dd>（无活跃会话）</dd>`
+      : sessEntries.map(([tk, sess]) => {
+          const holder = s.tokens.A === tk ? '浏览器 A 持有'
+                       : s.tokens.B === tk ? '浏览器 B 持有' : '客户端已不持有（被踢后残留）';
+          return `<div class="sess-row">
+            <span class="mono">auth:session:token#${sess.id}</span>
+            <span>剩 <b>${fmtDur(AuthModel.ttlLeft(s, sess))}</b></span>
+            <span class="badge ok">活跃</span>
+            <span class="mono" style="color:var(--muted)">${sess.ua}</span>
+            <span class="badge">${holder}</span>
+          </div>`;
+        }).join('');
+
+    const idxTokens = (s.index[1] || []);
+    const idxHtml = idxTokens.length
+      ? `<dd class="mono">{ ${idxTokens.map(tk => 'token#' + tk.slice(1)).join(', ')} }</dd>`
+      : `<dd class="mono">{ }（空）</dd>`;
+
+    const clientHtml = ['A', 'B'].map(br => {
+      const tk = s.tokens[br];
+      const alive = tk && s.sessions[tk] && s.now < s.sessions[tk].ttlAt;
+      return `<div class="sess-row">
+        <span class="badge ${s.browser === br ? 'acc' : ''}">浏览器 ${br}${s.browser === br ? ' ← 当前视角' : ''}</span>
+        <span>${tk ? `<span class="mono">token#${tk.slice(1)}</span>` : '（无 token）'}</span>
+        ${tk ? (alive ? '' : '<span class="badge err">已失效（会话不在 Redis）</span>') : ''}
+      </div>`;
+    }).join('');
+
+    $('state-card').innerHTML = `
+      <h3>当前状态（每次操作后刷新）</h3>
+      <div class="statusbar">
+        <span class="badge acc mono">⏱ ${fmtClock(s.now)}（T+${s.now - 480} 分钟）</span>
+        <span class="badge ${s.mode === 'GATEWAY' ? '' : 'warn'}">${s.mode === 'GATEWAY' ? '网关模式 · WSL 微服务' : '单体模式 · 生产 VM'}</span>
+        <span class="badge ${s.account.status === 'ACTIVE' ? 'ok' : 'err'}">账号 ${s.account.status}</span>
+        <span class="badge ${s.redisUp ? 'ok' : 'err'}">Redis ${s.redisUp ? 'UP' : 'DOWN（fail-close）'}</span>
+        ${realLocked ? `<span class="badge err">🔒 ${AuthModel.REAL_PHONE} 锁定中 · 剩 ${s.lockedUntilByPhone[AuthModel.REAL_PHONE] - s.now} 分钟</span>` : ''}
+        ${ghostLocked ? `<span class="badge err">🔒 ${AuthModel.GHOST_PHONE}（不存在）锁定中 · 剩 ${s.lockedUntilByPhone[AuthModel.GHOST_PHONE] - s.now} 分钟</span>` : ''}
+      </div>
+      <dl class="kv">
+        <dt>运营账号</dt><dd class="mono">${s.account.phone} · 角色 ${s.account.roles.join(', ')} · BCrypt(10)</dd>
+        <dt>失败计数 · 真实号<br><span class="mono" style="font-size:12px">${AuthModel.REAL_PHONE}</span></dt><dd><span class="dots">${dotsFor(AuthModel.REAL_PHONE)}</span> 窗口内 ${realFails}/${AuthModel.MAX_FAILS}（滑动 10 分钟窗）<br>${lockLine(AuthModel.REAL_PHONE)}</dd>
+        <dt>失败计数 · 演示号<br><span class="mono" style="font-size:12px">${AuthModel.GHOST_PHONE}（不存在）</span></dt><dd><span class="dots">${dotsFor(AuthModel.GHOST_PHONE)}</span> 窗口内 ${AuthModel.windowedFails(s, AuthModel.GHOST_PHONE).length}/${AuthModel.MAX_FAILS}（枚举者视角，独立计数）<br>${lockLine(AuthModel.GHOST_PHONE)}</dd>
+      </dl>
+      <dl class="kv" style="margin-top:10px">
+        <dt>Redis 会话<br><span class="mono" style="font-size:12px">auth:session:*</span></dt><dd>${sessHtml}</dd>
+        <dt>反向索引<br><span class="mono" style="font-size:12px">auth:sessions:1</span></dt>${idxHtml}
+        <dt>客户端（两浏览器）</dt><dd>${clientHtml}</dd>
+      </dl>
+      <div class="hint">会话校验只查 Redis，不查 DB 账号状态；UA·IP 摘要仅记录不校验；每次校验通过即续满 4h（均为 2026-09-29 定稿语义）。</div>`;
+
+    $('log').innerHTML = logs.map(l => {
+      if (l.kind === 'http') {
+        const cls = l.status < 400 ? 's2' : 's4';
+        return `<div class="logline http"><span class="t mono">${fmtClock(l.t)}</span>
+          <span class="req">${l.method} ${l.path}</span><span class="st ${cls}">${l.status}</span>
+          <span class="note">${l.note}</span></div>`;
+      }
+      return `<div class="logline ${l.kind}"><span class="t mono">${fmtClock(l.t)}</span>
+        <span class="note">${l.kind === 'time' ? '⏩ ' : '⚙ '}${l.note}</span></div>`;
+    }).join('');
+    const logBox = $('log');
+    logBox.scrollTop = logBox.scrollHeight;
+
+    // tabs + steps
+    $('tabs').innerHTML = walkthroughs.map((w, i) =>
+      `<button class="${i === activeTab ? 'on' : ''}" data-tab="${i}">${w.title.split(' · ')[0]} ${w.title.split(' · ')[1]}</button>`).join('');
+    $('tabs').querySelectorAll('button').forEach(b =>
+      b.addEventListener('click', () => { activeTab = +b.dataset.tab; render(); }));
+
+    const w = walkthroughs[activeTab];
+    $('wdesc').textContent = w.desc;
+    const p = progress[activeTab];
+    const started = p >= 0;
+    const finished = started && p >= w.steps.length;
+    $('btn-start').textContent = started ? '↻ 重播此场景（重置到初始状态）' : '▶ 开始此场景（重置到初始状态）';
+    $('steps').innerHTML = w.steps.map((st, i) => {
+      const done = started && i < p;
+      const now = started && i === p;
+      return `<li class="${done ? 'done' : ''}"><button class="${now ? 'now' : ''}" data-step="${i}" ${(!started || done || finished) ? 'disabled' : ''}>${st.label}</button></li>`;
+    }).join('');
+    $('steps').querySelectorAll('button:not([disabled])').forEach(b =>
+      b.addEventListener('click', () => {
+        const i = +b.dataset.step;
+        w.steps[i].run();
+        progress[activeTab] = i + 1;
+        render();
+      }));
+    $('done').style.display = finished ? '' : 'none';
+
+    // chips
+    $('br-a').classList.toggle('on', state.browser === 'A');
+    $('br-b').classList.toggle('on', state.browser === 'B');
+    $('pw-right').classList.toggle('on', pwChoice === 'CORRECT');
+    $('pw-wrong').classList.toggle('on', pwChoice === 'WRONG_PW');
+    $('pw-ghost').classList.toggle('on', pwChoice === 'NO_SUCH_PHONE');
+  }
+
+  // ---------- 事件绑定（free-play） ----------
+  $('br-a').addEventListener('click', () => apply(AuthModel.switchBrowser(state, 'A')));
+  $('br-b').addEventListener('click', () => apply(AuthModel.switchBrowser(state, 'B')));
+  $('pw-right').addEventListener('click', () => { pwChoice = 'CORRECT'; render(); });
+  $('pw-wrong').addEventListener('click', () => { pwChoice = 'WRONG_PW'; render(); });
+  $('pw-ghost').addEventListener('click', () => { pwChoice = 'NO_SUCH_PHONE'; render(); });
+  $('btn-login').addEventListener('click', () => apply(AuthModel.login(state, AT[pwChoice])));
+  $('btn-me').addEventListener('click', () => apply(AuthModel.me(state)));
+  $('btn-logout').addEventListener('click', () => apply(AuthModel.logout(state)));
+  document.querySelectorAll('[data-adv]').forEach(b =>
+    b.addEventListener('click', () => apply(AuthModel.advance(state, +b.dataset.adv))));
+  $('btn-mode').addEventListener('click', () => apply(AuthModel.toggleMode(state)));
+  $('btn-redis').addEventListener('click', () => apply(AuthModel.toggleRedis(state)));
+  $('btn-acct').addEventListener('click', () => apply(AuthModel.toggleAccount(state)));
+  $('btn-reset').addEventListener('click', () => {
+    state = AuthModel.initial(); logs.length = 0; progress.fill(-1);
+    logs.push({ kind: 'sys', t: state.now, note: '重置到初始状态（第 1 天 08:00，未登录，无锁定，Redis UP）' });
+    render();
+  });
+  $('btn-start').addEventListener('click', () => {
+    state = AuthModel.initial(); logs.length = 0; progress.fill(-1);
+    progress[activeTab] = 0;
+    logs.push({ kind: 'sys', t: state.now, note: `重置到初始状态，开始场景 ${walkthroughs[activeTab].id} —— 按亮起的步骤按钮依次点击` });
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
