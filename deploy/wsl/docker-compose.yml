@@ -1,0 +1,10 @@
+# WSL 开发栈（微服务模式，ADR-0008 部署 A：镜像同机零传输）。
+# T1 仅 auth-boot（healthz 容器）；MySQL/Redis/Nacos/gateway 随后续 ticket 入栈。
+# 镜像 tag 由流水线以 git 短 SHA 注入（YJD_TAG），本地默认 latest。
+services:
+  auth-boot:
+    image: yjd-auth-boot:${YJD_TAG:-latest}
+    container_name: yjd-auth-boot
+    ports:
+      - "8080:8080"
+    restart: unless-stopped

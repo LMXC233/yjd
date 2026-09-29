@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.yjd</groupId>
+    <artifactId>yjd-backend</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>yjd-auth-service</artifactId>
+  <name>yjd-auth-service</name>
+  <description>auth 域业务实现：controller/service/mapper/entity 分包。无主类纯库（ADR-0005），主类只存在于 boot 启动器</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.yjd</groupId>
+      <artifactId>yjd-auth-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.yjd</groupId>
+      <artifactId>yjd-common</artifactId>
+    </dependency>
+  </dependencies>
+</project>
