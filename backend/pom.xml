@@ -62,15 +62,11 @@
         <scope>import</scope>
       </dependency>
 
-      <!-- 内部模块版本同样收敛到 parent，子模块声明依赖不带版本号 -->
+      <!-- 内部模块版本同样收敛到 parent，子模块声明依赖不带版本号（gateway 不在此列：
+           它是启动器不是库，其他服务只允许依赖 xxx-api，ADR-0005） -->
       <dependency>
         <groupId>com.yjd</groupId>
         <artifactId>yjd-common</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.yjd</groupId>
-        <artifactId>yjd-gateway</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>

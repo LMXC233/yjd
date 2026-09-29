@@ -12,12 +12,5 @@
 
   <artifactId>yjd-common</artifactId>
   <name>yjd-common</name>
-  <description>跨服务共享：统一响应 R&lt;T&gt;/异常码/会话校验 filter/TraceId 工具（随 ticket 增量）</description>
-
-  <dependencies>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-web</artifactId>
-    </dependency>
-  </dependencies>
+  <description>跨服务共享：统一响应 R&lt;T&gt;/异常码/会话校验 filter/TraceId 工具（随 ticket 增量）。刻意不依赖 web 栈：消费方含 WebFlux 网关，servlet starter 会污染其 classpath</description>
 </project>
